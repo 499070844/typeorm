@@ -10,7 +10,7 @@ import {RelationQueryBuilder} from "./RelationQueryBuilder";
 import {ObjectType} from "../common/ObjectType";
 import {Alias} from "./Alias";
 import {Brackets} from "./Brackets";
-import {QueryPartialEntity} from "./QueryPartialEntity";
+import {QueryDeepPartialEntity} from "./QueryPartialEntity";
 import {EntityMetadata} from "../metadata/EntityMetadata";
 import {ColumnMetadata} from "../metadata/ColumnMetadata";
 import {SqljsDriver} from "../driver/sqljs/SqljsDriver";
@@ -18,6 +18,7 @@ import {SqlServerDriver} from "../driver/sqlserver/SqlServerDriver";
 import {OracleDriver} from "../driver/oracle/OracleDriver";
 import {EntitySchema} from "../";
 import {FindOperator} from "../find-options/FindOperator";
+import {In} from "../find-options/operator/In";
 
 // todo: completely cover query builder with tests
 // todo: entityOrProperty can be target name. implement proper behaviour if it is.
@@ -179,27 +180,27 @@ export abstract class QueryBuilder<Entity> {
     /**
      * Creates UPDATE query and applies given update values.
      */
-    update(updateSet: QueryPartialEntity<Entity>): UpdateQueryBuilder<Entity>;
+    update(updateSet: QueryDeepPartialEntity<Entity>): UpdateQueryBuilder<Entity>;
 
     /**
      * Creates UPDATE query for the given entity and applies given update values.
      */
-    update<T>(entity: ObjectType<T>, updateSet?: QueryPartialEntity<T>): UpdateQueryBuilder<T>;
+    update<T>(entity: ObjectType<T>, updateSet?: QueryDeepPartialEntity<T>): UpdateQueryBuilder<T>;
 
     /**
      * Creates UPDATE query for the given entity and applies given update values.
      */
-    update<T>(entity: EntitySchema<T>, updateSet?: QueryPartialEntity<T>): UpdateQueryBuilder<T>;
+    update<T>(entity: EntitySchema<T>, updateSet?: QueryDeepPartialEntity<T>): UpdateQueryBuilder<T>;
 
     /**
      * Creates UPDATE query for the given entity and applies given update values.
      */
-    update(entity: Function|EntitySchema<Entity>|string, updateSet?: QueryPartialEntity<Entity>): UpdateQueryBuilder<Entity>;
+    update(entity: Function|EntitySchema<Entity>|string, updateSet?: QueryDeepPartialEntity<Entity>): UpdateQueryBuilder<Entity>;
 
     /**
      * Creates UPDATE query for the given table name and applies given update values.
      */
-    update(tableName: string, updateSet?: QueryPartialEntity<Entity>): UpdateQueryBuilder<Entity>;
+    update(tableName: string, updateSet?: QueryDeepPartialEntity<Entity>): UpdateQueryBuilder<Entity>;
 
     /**
      * Creates UPDATE query and applies given update values.
@@ -697,14 +698,30 @@ export abstract class QueryBuilder<Entity> {
      * Creates "WHERE" expression and variables for the given "ids".
      */
     protected createWhereIdsExpression(ids: any|any[]): string {
-        ids = ids instanceof Array ? ids : [ids];
         const metadata = this.expressionMap.mainAlias!.metadata;
+        const normalized = (Array.isArray(ids) ? ids : [ids]).map(id => metadata.ensureEntityIdMap(id));
+
+        // using in(...ids) for single primary key entities
+        if (!metadata.hasMultiplePrimaryKeys
+            && metadata.embeddeds.length === 0
+        ) {
+            const primaryColumn = metadata.primaryColumns[0];
+
+            // getEntityValue will try to transform `In`, it is a bug
+            // todo: remove this transformer check after #2390 is fixed
+            if (!primaryColumn.transformer) {
+                return this.computeWhereParameter({
+                    [primaryColumn.propertyName]: In(
+                        normalized.map(id => primaryColumn.getEntityValue(id, false))
+                    )
+                });
+            }
+        }
 
         // create shortcuts for better readability
         const alias = this.expressionMap.aliasNamePrefixingEnabled ? this.escape(this.expressionMap.mainAlias!.name) + "." : "";
         let parameterIndex = Object.keys(this.expressionMap.nativeParameters).length;
-        const whereStrings = (ids as any[]).map((id, index) => {
-            id = metadata.ensureEntityIdMap(id);
+        const whereStrings = normalized.map((id, index) => {
             const whereSubStrings: string[] = [];
             metadata.primaryColumns.forEach((primaryColumn, secondIndex) => {
                 const parameterName = "id_" + index + "_" + secondIndex;
@@ -716,7 +733,9 @@ export abstract class QueryBuilder<Entity> {
             return whereSubStrings.join(" AND ");
         });
 
-        return whereStrings.length > 1 ? whereStrings.map(whereString => "(" + whereString + ")").join(" OR ") : whereStrings[0];
+        return whereStrings.length > 1
+            ? "(" + whereStrings.map(whereString => "(" + whereString + ")").join(" OR ") + ")"
+            : whereStrings[0];
     }
 
     /**

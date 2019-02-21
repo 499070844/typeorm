@@ -42,7 +42,7 @@
     "type": "sqljs"
   },
   {
-    "skip": true,
+    "skip": false,
     "name": "mssql",
     "type": "mssql",
     "host": "localhost",
@@ -65,6 +65,7 @@
     "disabledIfNotEnabledImplicitly": true,
     "name": "mongodb",
     "type": "mongodb",
-    "database": "test"
+    "database": "test",
+    "useNewUrlParser": true
   }
 ]

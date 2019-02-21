@@ -10,7 +10,7 @@ import {
     Code,
     Collection,
     CollectionAggregationOptions,
-    CollectionBluckWriteOptions,
+    CollectionBulkWriteOptions,
     CollectionInsertManyOptions,
     CollectionInsertOneOptions,
     CollectionOptions,
@@ -42,6 +42,7 @@ import {SqlInMemory} from "../SqlInMemory";
 import {TableUnique} from "../../schema-builder/table/TableUnique";
 import {Broadcaster} from "../../subscriber/Broadcaster";
 import {TableCheck} from "../../schema-builder/table/TableCheck";
+import {TableExclusion} from "../../schema-builder/table/TableExclusion";
 
 /**
  * Runs queries on a single MongoDB connection.
@@ -127,7 +128,7 @@ export class MongoQueryRunner implements QueryRunner {
     /**
      * Perform a bulkWrite operation without a fluent API.
      */
-    async bulkWrite(collectionName: string, operations: ObjectLiteral[], options?: CollectionBluckWriteOptions): Promise<BulkWriteOpResultObject> {
+    async bulkWrite(collectionName: string, operations: ObjectLiteral[], options?: CollectionBulkWriteOptions): Promise<BulkWriteOpResultObject> {
         return await this.getCollection(collectionName).bulkWrite(operations, options);
     }
 
@@ -135,7 +136,7 @@ export class MongoQueryRunner implements QueryRunner {
      * Count number of matching documents in the db to a query.
      */
     async count(collectionName: string, query?: ObjectLiteral, options?: MongoCountPreferences): Promise<any> {
-        return await this.getCollection(collectionName).count(query || {}, options);
+        return await this.getCollection(collectionName).countDocuments(query || {}, options);
     }
 
     /**
@@ -677,6 +678,34 @@ export class MongoQueryRunner implements QueryRunner {
      * Drops check constraints.
      */
     async dropCheckConstraints(tableOrName: Table|string, checkConstraints: TableCheck[]): Promise<void> {
+        throw new Error(`Schema update queries are not supported by MongoDB driver.`);
+    }
+
+    /**
+     * Creates a new exclusion constraint.
+     */
+    async createExclusionConstraint(tableOrName: Table|string, exclusionConstraint: TableExclusion): Promise<void> {
+        throw new Error(`Schema update queries are not supported by MongoDB driver.`);
+    }
+
+    /**
+     * Creates a new exclusion constraints.
+     */
+    async createExclusionConstraints(tableOrName: Table|string, exclusionConstraints: TableExclusion[]): Promise<void> {
+        throw new Error(`Schema update queries are not supported by MongoDB driver.`);
+    }
+
+    /**
+     * Drops exclusion constraint.
+     */
+    async dropExclusionConstraint(tableOrName: Table|string, exclusionOrName: TableExclusion|string): Promise<void> {
+        throw new Error(`Schema update queries are not supported by MongoDB driver.`);
+    }
+
+    /**
+     * Drops exclusion constraints.
+     */
+    async dropExclusionConstraints(tableOrName: Table|string, exclusionConstraints: TableExclusion[]): Promise<void> {
         throw new Error(`Schema update queries are not supported by MongoDB driver.`);
     }
 

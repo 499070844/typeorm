@@ -2553,7 +2553,7 @@ export interface Collection {
      * @param options Optional.
      * @see http://mongodb.github.io/node-mongodb-native/2.1/api/Collection.html#bulkWrite
      */
-    bulkWrite(operations: Object[], options?: CollectionBluckWriteOptions): Promise<BulkWriteOpResultObject>;
+    bulkWrite(operations: Object[], options?: CollectionBulkWriteOptions): Promise<BulkWriteOpResultObject>;
 
     /**
      * BulkWrite.
@@ -2563,7 +2563,7 @@ export interface Collection {
      * @param callback The command result callback.
      * @see http://mongodb.github.io/node-mongodb-native/2.1/api/Collection.html#bulkWrite
      */
-    bulkWrite(operations: Object[], options: CollectionBluckWriteOptions, callback: MongoCallback<BulkWriteOpResultObject>): void;
+    bulkWrite(operations: Object[], options: CollectionBulkWriteOptions, callback: MongoCallback<BulkWriteOpResultObject>): void;
 
     /**
      * Count number of matching documents in the db to a query.
@@ -2592,6 +2592,34 @@ export interface Collection {
      * @see http://mongodb.github.io/node-mongodb-native/2.1/api/Collection.html#count
      */
     count(query: Object, options: MongoCountPreferences, callback: MongoCallback<number>): void;
+
+        /**
+     * Count number of matching documents in the db to a query.
+     *
+     * @param query The query for the countDocuments.
+     * @param callback The command result callback.
+     * @see http://mongodb.github.io/node-mongodb-native/3.1/api/Collection.html#countDocumentst
+     */
+    countDocuments(query: Object, callback: MongoCallback<number>): void;
+
+    /**
+     * Count number of matching documents in the db to a query.
+     *
+     * @param query The query for the count.
+     * @param options Optional.
+     * @see http://mongodb.github.io/node-mongodb-native/3.1/api/Collection.html#countDocuments
+     */
+    countDocuments(query: Object, options?: MongoCountPreferences): Promise<number>;
+
+    /**
+     * Count number of matching documents in the db to a query.
+     *
+     * @param query The query for the count=
+     * @param options Optional settings.
+     * @param callback The command result callback.
+     * @see http://mongodb.github.io/node-mongodb-native/3.1/api/Collection.html#countDocuments
+     */
+    countDocuments(query: Object, options: MongoCountPreferences, callback: MongoCallback<number>): void;
 
     /**
      * Creates an index on the db and collection collection.
@@ -3639,11 +3667,11 @@ export interface UpdateManyOptions {
 }
 
 /**
- * CollectionBluckWriteOptions.
+ * CollectionBulkWriteOptions.
  *
  * @see http://mongodb.github.io/node-mongodb-native/2.1/api/Collection.html#bulkWrite
  */
-export interface CollectionBluckWriteOptions {
+export interface CollectionBulkWriteOptions {
 
     /**
      * The write concern.

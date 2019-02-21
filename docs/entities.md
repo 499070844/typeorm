@@ -1,3 +1,5 @@
+
+
 # Entities
 
 * [What is Entity?](#what-is-entity)
@@ -10,6 +12,7 @@
   * [Column types for `postgres`](#column-types-for-postgres)
   * [Column types for `sqlite` / `cordova` / `react-native` / `expo`](#column-types-for-sqlite--cordova--react-native--expo)
   * [Column types for `mssql`](#column-types-for-mssql)
+  * [`enum` column type](#enum-column-type)
   * [`simple-array` column type](#simple-array-column-type)
   * [`simple-json` column type](#simple-json-column-type)
   * [Columns with generated values](#columns-with-generated-values)
@@ -107,7 +110,7 @@ Each entity class property you marked with `@Column` will be mapped to a databas
 Each entity must have at least one primary column.
 There are several types of primary columns:
 
-* `@PrimaryColumn()` creates a primary column which take any value of any type. You can specify the column type. If you don't specify a column type it will be inferred from the property type. Example below will create id with `int` as type which you must manually assign before save.
+* `@PrimaryColumn()` creates a primary column which takes any value of any type. You can specify the column type. If you don't specify a column type it will be inferred from the property type. The example below will create id with `int` as type which you must manually assign before save.
 
 ```typescript
 import {Entity, PrimaryColumn} from "typeorm";
@@ -169,11 +172,11 @@ export class User {
 }
 ```
 
-When you save entities using `save` it always tries to find a entity in the database with the given entity id (or ids).
+When you save entities using `save` it always tries to find an entity in the database with the given entity id (or ids).
 If id/ids are found then it will update this row in the database.
 If there is no row with the id/ids, a new row will be inserted.
 
-To find a entity by id you can use `manager.findOne` or `repository.findOne`. Example:
+To find an entity by id you can use `manager.findOne` or `repository.findOne`. Example:
 
 ```typescript
 // find one by id with single primary key
@@ -283,16 +286,17 @@ For example:
 or
 
 ```typescript
-@Column({ type: "int", length: 200 })
+@Column({ type: "int", width: 200 })
 ```
 
 ### Column types for `mysql` / `mariadb`
 
-`int`, `tinyint`, `smallint`, `mediumint`, `bigint`, `float`, `double`, `dec`, `decimal`, `numeric`,
-`date`, `datetime`, `timestamp`, `time`, `year`, `char`, `varchar`, `nvarchar`, `text`, `tinytext`,
-`mediumtext`, `blob`, `longtext`, `tinyblob`, `mediumblob`, `longblob`, `enum`, `json`, `binary`,
-`geometry`, `point`, `linestring`, `polygon`, `multipoint`, `multilinestring`, `multipolygon`,
- `geometrycollection`
+`bit`, `int`, `integer`, `tinyint`, `smallint`, `mediumint`, `bigint`, `float`, `double`,
+`double precision`, `dec`, `decimal`, `numeric`, `fixed`, `bool`, `boolean`, `date`, `datetime`,
+`timestamp`, `time`, `year`, `char`, `nchar`, `national char`, `varchar`, `nvarchar`, `national varchar`,
+`text`, `tinytext`, `mediumtext`, `blob`, `longtext`, `tinyblob`, `mediumblob`, `longblob`, `enum`,
+`json`, `binary`, `varbinary`, `geometry`, `point`, `linestring`, `polygon`, `multipoint`, `multilinestring`,
+`multipolygon`, `geometrycollection`
 
 ### Column types for `postgres`
 
@@ -325,6 +329,55 @@ or
 `decimal`, `integer`, `int`, `smallint`, `real`, `double precision`, `date`, `timestamp`, `timestamp with time zone`,
 `timestamp with local time zone`, `interval year to month`, `interval day to second`, `bfile`, `blob`, `clob`,
 `nclob`, `rowid`, `urowid`
+
+### `enum` column type
+
+`enum` column type is supported by `postgres` and `mysql`. There are various possible column definitions:
+
+Using typescript enums:
+```typescript
+export enum UserRole {
+    ADMIN = "admin",
+    EDITOR = "editor",
+    GHOST = "ghost"
+}
+
+@Entity()
+export class User {
+
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column({
+        type: "enum",
+        enum: UserRole,
+        default: UserRole.GHOST
+    })
+    role: UserRole
+
+}
+```
+> Note: String, numeric and heterogeneous enums are supported.
+
+Using array with enum values:
+```typescript
+export type UserRoleType = "admin" | "editor" | "ghost",
+
+@Entity()
+export class User {
+
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column({
+        type: "enum",
+        enum: ["admin", "editor", "ghost"],
+        default: "ghost"
+    })
+    role: UserRoleType
+}
+```
+
 
 ### `simple-array` column type
 
@@ -432,9 +485,8 @@ List of available options in `ColumnOptions`:
 
 * `type: ColumnType` - Column type. One of the type listed [above](#column-types).
 * `name: string` - Column name in the database table.
-
 By default the column name is generated from the name of the property.
-You can change it by specifying your own name
+You can change it by specifying your own name.
 
 * `length: number` - Column type's length. For example if you want to create `varchar(150)` type you specify column type and length options.
 * `width: number` - column type's display width. Used only for [MySQL integer types](https://dev.mysql.com/doc/refman/5.7/en/integer-types.html)
@@ -623,7 +675,7 @@ export class Category {
     description: string;
 
     @TreeChildren()
-    children: Category;
+    children: Category[];
 
     @TreeParent()
     parent: Category;

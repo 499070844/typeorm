@@ -1,7 +1,7 @@
 import {Connection} from "../connection/Connection";
 import {FindManyOptions} from "../find-options/FindManyOptions";
 import {ObjectType} from "../common/ObjectType";
-import { EntityNotFoundError } from "../error/EntityNotFoundError";
+import {EntityNotFoundError} from "../error/EntityNotFoundError";
 import {QueryRunnerProviderAlreadyReleasedError} from "../error/QueryRunnerProviderAlreadyReleasedError";
 import {FindOneOptions} from "../find-options/FindOneOptions";
 import {DeepPartial} from "../common/DeepPartial";
@@ -25,7 +25,7 @@ import {RepositoryNotFoundError} from "../error/RepositoryNotFoundError";
 import {RepositoryNotTreeError} from "../error/RepositoryNotTreeError";
 import {RepositoryFactory} from "../repository/RepositoryFactory";
 import {TreeRepositoryNotSupportedError} from "../error/TreeRepositoryNotSupportedError";
-import {QueryPartialEntity} from "../query-builder/QueryPartialEntity";
+import {QueryDeepPartialEntity} from "../query-builder/QueryPartialEntity";
 import {EntityPersistExecutor} from "../persistence/EntityPersistExecutor";
 import {ObjectID} from "../driver/mongodb/typings";
 import {InsertResult} from "../query-builder/result/InsertResult";
@@ -34,6 +34,7 @@ import {DeleteResult} from "../query-builder/result/DeleteResult";
 import {OracleDriver} from "../driver/oracle/OracleDriver";
 import {FindConditions} from "../find-options/FindConditions";
 import {IsolationLevel} from "../driver/types/IsolationLevel";
+import {ObjectUtils} from "../util/ObjectUtils";
 
 /**
  * Entity manager supposed to work with any entity, automatically find its repository and call its methods,
@@ -79,7 +80,7 @@ export class EntityManager {
         if (queryRunner) {
             this.queryRunner = queryRunner;
             // dynamic: this.queryRunner = manager;
-            Object.assign(this.queryRunner, { manager: this });
+            ObjectUtils.assign(this.queryRunner, { manager: this });
         }
     }
 
@@ -91,11 +92,11 @@ export class EntityManager {
      * Wraps given function execution (and all operations made there) in a transaction.
      * All database operations must be executed using provided entity manager.
      */
-    async transaction<T>(runInTransaction: (entityManger: EntityManager) => Promise<T>): Promise<T>;
-    async transaction<T>(isolationLevel: IsolationLevel, runInTransaction: (entityManger: EntityManager) => Promise<T>): Promise<T>;
+    async transaction<T>(runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T>;
+    async transaction<T>(isolationLevel: IsolationLevel, runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T>;
     async transaction<T>(
-        isolationOrRunInTransaction: IsolationLevel | ((entityManger: EntityManager) => Promise<T>),
-        runInTransactionParam?: (entityManger: EntityManager) => Promise<T>
+        isolationOrRunInTransaction: IsolationLevel | ((entityManager: EntityManager) => Promise<T>),
+        runInTransactionParam?: (entityManager: EntityManager) => Promise<T>
     ): Promise<T> {
 
         const isolation = typeof isolationOrRunInTransaction === "string" ? isolationOrRunInTransaction : undefined;
@@ -363,7 +364,7 @@ export class EntityManager {
      * Does not check if entity exist in the database, so query will fail if duplicate entity is being inserted.
      * You can execute bulk inserts using this method.
      */
-    async insert<Entity>(target: ObjectType<Entity>|EntitySchema<Entity>|string, entity: QueryPartialEntity<Entity>|(QueryPartialEntity<Entity>[]), options?: SaveOptions): Promise<InsertResult> {
+    async insert<Entity>(target: ObjectType<Entity>|EntitySchema<Entity>|string, entity: QueryDeepPartialEntity<Entity>|(QueryDeepPartialEntity<Entity>[]), options?: SaveOptions): Promise<InsertResult> {
 
         // TODO: Oracle does not support multiple values. Need to create another nice solution.
         if (this.connection.driver instanceof OracleDriver && entity instanceof Array) {
@@ -384,8 +385,8 @@ export class EntityManager {
      * Does not check if entity exist in the database.
      * Condition(s) cannot be empty.
      */
-    update<Entity>(target: ObjectType<Entity>|EntitySchema<Entity>|string, criteria: string|string[]|number|number[]|Date|Date[]|ObjectID|ObjectID[]|FindConditions<Entity>, partialEntity: DeepPartial<Entity>, options?: SaveOptions): Promise<UpdateResult> {
-        
+    update<Entity>(target: ObjectType<Entity>|EntitySchema<Entity>|string, criteria: string|string[]|number|number[]|Date|Date[]|ObjectID|ObjectID[]|FindConditions<Entity>, partialEntity: QueryDeepPartialEntity<Entity>, options?: SaveOptions): Promise<UpdateResult> {
+
         // if user passed empty criteria or empty list of criterias, then throw an error
         if (criteria === undefined ||
             criteria === null ||
@@ -394,7 +395,7 @@ export class EntityManager {
 
             return Promise.reject(new Error(`Empty criteria(s) are not allowed for the update method.`));
         }
-        
+
         if (typeof criteria === "string" ||
             typeof criteria === "number" ||
             criteria instanceof Date ||
@@ -423,7 +424,7 @@ export class EntityManager {
      * Condition(s) cannot be empty.
      */
     delete<Entity>(targetOrEntity: ObjectType<Entity>|EntitySchema<Entity>|string, criteria: string|string[]|number|number[]|Date|Date[]|ObjectID|ObjectID[]|FindConditions<Entity>, options?: RemoveOptions): Promise<DeleteResult> {
-        
+
         // if user passed empty criteria or empty list of criterias, then throw an error
         if (criteria === undefined ||
             criteria === null ||
@@ -432,7 +433,7 @@ export class EntityManager {
 
             return Promise.reject(new Error(`Empty criteria(s) are not allowed for the delete method.`));
         }
-        
+
         if (typeof criteria === "string" ||
             typeof criteria === "number" ||
             criteria instanceof Date ||
@@ -578,7 +579,7 @@ export class EntityManager {
      */
     async findOne<Entity>(entityClass: ObjectType<Entity>|EntitySchema<Entity>|string, idOrOptionsOrConditions?: string|string[]|number|number[]|Date|Date[]|ObjectID|ObjectID[]|FindOneOptions<Entity>|FindConditions<Entity>, maybeOptions?: FindOneOptions<Entity>): Promise<Entity|undefined> {
 
-        let findOptions: FindOneOptions<any>|undefined = undefined;
+        let findOptions: FindManyOptions<any>|FindOneOptions<any>|undefined = undefined;
         if (FindOptionsUtils.isFindOneOptions(idOrOptionsOrConditions)) {
             findOptions = idOrOptionsOrConditions;
         } else if (maybeOptions && FindOptionsUtils.isFindOneOptions(maybeOptions)) {
@@ -602,8 +603,12 @@ export class EntityManager {
         if (!findOptions || findOptions.loadEagerRelations !== false)
             FindOptionsUtils.joinEagerRelations(qb, qb.alias, qb.expressionMap.mainAlias!.metadata);
 
-        if (findOptions)
-            FindOptionsUtils.applyOptionsToQueryBuilder(qb, findOptions);
+        findOptions = {
+            ...(findOptions || {}),
+            take: 1,
+        };
+
+        FindOptionsUtils.applyOptionsToQueryBuilder(qb, findOptions);
 
         if (options) {
             qb.where(options);
@@ -666,19 +671,28 @@ export class EntityManager {
     async increment<Entity>(entityClass: ObjectType<Entity>|EntitySchema<Entity>|string,
                             conditions: FindConditions<Entity>,
                             propertyPath: string,
-                            value: number): Promise<void> {
+                            value: number | string): Promise<UpdateResult> {
 
         const metadata = this.connection.getMetadata(entityClass);
         const column = metadata.findColumnWithPropertyPath(propertyPath);
         if (!column)
             throw new Error(`Column ${propertyPath} was not found in ${metadata.targetName} entity.`);
 
-        await this
+        if (isNaN(Number(value)))
+            throw new Error(`Value "${value}" is not a number.`);
+
+        // convert possible embeded path "social.likes" into object { social: { like: () => value } }
+        const values: QueryDeepPartialEntity<Entity> = propertyPath
+            .split(".")
+            .reduceRight(
+                (value, key) => ({ [key]: value }) as any,
+                () => this.connection.driver.escape(column.databaseName) + " + " + value
+            );
+
+        return this
             .createQueryBuilder(entityClass, "entity")
             .update(entityClass)
-            .set({
-                [propertyPath]: () => this.connection.driver.escape(column.databaseName) + " + " + Number(value)
-            })
+            .set(values)
             .where(conditions)
             .execute();
     }
@@ -689,19 +703,28 @@ export class EntityManager {
     async decrement<Entity>(entityClass: ObjectType<Entity>|EntitySchema<Entity>|string,
                             conditions: FindConditions<Entity>,
                             propertyPath: string,
-                            value: number): Promise<void> {
+                            value: number | string): Promise<UpdateResult> {
 
         const metadata = this.connection.getMetadata(entityClass);
         const column = metadata.findColumnWithPropertyPath(propertyPath);
         if (!column)
             throw new Error(`Column ${propertyPath} was not found in ${metadata.targetName} entity.`);
 
-        await this
+        if (isNaN(Number(value)))
+            throw new Error(`Value "${value}" is not a number.`);
+
+        // convert possible embeded path "social.likes" into object { social: { like: () => value } }
+        const values: QueryDeepPartialEntity<Entity> = propertyPath
+            .split(".")
+            .reduceRight(
+                (value, key) => ({ [key]: value }) as any,
+                () => this.connection.driver.escape(column.databaseName) + " - " + value
+            );
+
+        return this
             .createQueryBuilder(entityClass, "entity")
             .update(entityClass)
-            .set({
-                [propertyPath]: () => this.connection.driver.escape(column.databaseName) + " - " + Number(value)
-            })
+            .set(values)
             .where(conditions)
             .execute();
     }

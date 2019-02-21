@@ -22,6 +22,7 @@ import {TreeMetadataArgs} from "../metadata-args/TreeMetadataArgs";
 import {UniqueMetadata} from "./UniqueMetadata";
 import {CheckMetadata} from "./CheckMetadata";
 import {QueryRunner} from "..";
+import {ExclusionMetadata} from "./ExclusionMetadata";
 
 /**
  * Contains all entity metadata.
@@ -404,6 +405,11 @@ export class EntityMetadata {
     checks: CheckMetadata[] = [];
 
     /**
+     * Entity's exclusion metadatas.
+     */
+    exclusions: ExclusionMetadata[] = [];
+
+    /**
      * Entity's own listener metadatas.
      */
     ownListeners: EntityListenerMetadata[] = [];
@@ -747,7 +753,7 @@ export class EntityMetadata {
         const namingStrategy = this.connection.namingStrategy;
         const entityPrefix = this.connection.options.entityPrefix;
         this.engine = this.tableMetadataArgs.engine;
-        this.database = this.tableMetadataArgs.database;
+        this.database = this.tableMetadataArgs.type === "entity-child" && this.parentEntityMetadata ? this.parentEntityMetadata.database : this.tableMetadataArgs.database;
         this.schema = this.tableMetadataArgs.schema || (this.connection.options as PostgresConnectionOptions|SqlServerConnectionOptions).schema;
         this.givenTableName = this.tableMetadataArgs.type === "entity-child" && this.parentEntityMetadata ? this.parentEntityMetadata.givenTableName : this.tableMetadataArgs.name;
         this.synchronize = this.tableMetadataArgs.synchronize === false ? false : true;

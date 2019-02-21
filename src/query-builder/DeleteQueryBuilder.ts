@@ -10,6 +10,7 @@ import {Brackets} from "./Brackets";
 import {DeleteResult} from "./result/DeleteResult";
 import {ReturningStatementNotSupportedError} from "../error/ReturningStatementNotSupportedError";
 import {SqljsDriver} from "../driver/sqljs/SqljsDriver";
+import {MysqlDriver} from "../driver/mysql/MysqlDriver";
 import {BroadcasterResult} from "../subscriber/BroadcasterResult";
 import {EntitySchema} from "../index";
 
@@ -64,7 +65,19 @@ export class DeleteQueryBuilder<Entity> extends QueryBuilder<Entity> implements 
 
             // execute query
             const deleteResult = new DeleteResult();
-            deleteResult.raw = await queryRunner.query(sql, parameters);
+            const result = await queryRunner.query(sql, parameters);
+
+            const driver = queryRunner.connection.driver;
+            if (driver instanceof MysqlDriver) {
+                deleteResult.raw = result;
+                deleteResult.affected = result.affectedRows;
+            } else if (driver instanceof SqlServerDriver || driver instanceof PostgresDriver) {
+                deleteResult.raw = result[0] ? result[0] : null;
+                // don't return 0 because it could confuse. null means that we did not receive this value
+                deleteResult.affected = typeof result[1] === "number" ? result[1] : null;
+            } else {
+                deleteResult.raw = result;
+            }
 
             // call after deletion methods in listeners and subscribers
             if (this.expressionMap.callListeners === true && this.expressionMap.mainAlias!.hasMetadata) {

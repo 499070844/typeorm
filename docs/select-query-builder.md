@@ -274,6 +274,21 @@ is a shortcut for:
 .setParameter("name", "Timber")
 ```
 
+Note: do not use the same parameter name for different values across the query builder. Values will be overriden if you set them multiple times.
+
+You can also supply an array of values, and have them transformed into a list of values in the SQL
+statement, by using the special expansion syntax:
+
+```typescript
+.where("user.name IN (:...names)", { names: [ "Timber", "Cristal", "Lina" ] })
+```
+
+Which becomes:
+
+```sql
+WHERE user.name IN ('Timber', 'Cristal', 'Lina')
+```
+
 ## Adding `WHERE` expression
 
 Adding a `WHERE` expression is as easy as:
@@ -325,6 +340,7 @@ createQueryBuilder("user")
     .andWhere(new Brackets(qb => {
         qb.where("user.firstName = :firstName", { firstName: "Timber" })
           .orWhere("user.lastName = :lastName", { lastName: "Saw" })
+    }))
 ```
 
 Which will produce the following SQL query:
@@ -453,7 +469,7 @@ createQueryBuilder("user")
     .addGroupBy("user.id");
 ```
 
-If you use `.groupBy` more than once you'll override all previous `ORDER BY` expressions.
+If you use `.groupBy` more than once you'll override all previous `GROUP BY` expressions.
 
 ## Adding `LIMIT` expression
 

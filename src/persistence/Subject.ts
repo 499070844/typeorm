@@ -3,6 +3,7 @@ import {EntityMetadata} from "../metadata/EntityMetadata";
 import {SubjectChangeMap} from "./SubjectChangeMap";
 import {OrmUtils} from "../util/OrmUtils";
 import {RelationMetadata} from "../metadata/RelationMetadata";
+import {ColumnMetadata} from "../metadata/ColumnMetadata";
 
 /**
  * Subject is a subject of persistence.
@@ -58,6 +59,12 @@ export class Subject {
     databaseEntity?: ObjectLiteral;
 
     /**
+     * Indicates if database entity was loaded.
+     * No matter if it was found or not, it indicates the fact of loading.
+     */
+    databaseEntityLoaded: boolean = false;
+
+    /**
      * Changes needs to be applied in the database for the given subject.
      */
     changeMaps: SubjectChangeMap[] = [];
@@ -98,6 +105,16 @@ export class Subject {
      */
     updatedRelationMaps: { relation: RelationMetadata, value: ObjectLiteral }[] = [];
 
+    /**
+     * List of updated columns
+     */
+    diffColumns: ColumnMetadata[] = [];
+
+    /**
+     * List of updated relations
+     */
+    diffRelations: RelationMetadata[] = [];
+
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -106,7 +123,6 @@ export class Subject {
         metadata: EntityMetadata,
         parentSubject?: Subject,
         entity?: ObjectLiteral,
-        databaseEntity?: ObjectLiteral,
         canBeInserted?: boolean,
         canBeUpdated?: boolean,
         mustBeRemoved?: boolean,
@@ -115,7 +131,6 @@ export class Subject {
     }) {
         this.metadata = options.metadata;
         this.entity = options.entity;
-        this.databaseEntity = options.databaseEntity;
         this.parentSubject = options.parentSubject;
         if (options.canBeInserted !== undefined)
             this.canBeInserted = options.canBeInserted;
@@ -163,7 +178,11 @@ export class Subject {
      * and if it does have differentiated columns or relations.
      */
     get mustBeUpdated() {
-        return this.canBeUpdated && this.identifier && (this.changeMaps.length > 0 || !!this.metadata.objectIdColumn); // for mongodb we do not compute changes - we always update entity
+        return this.canBeUpdated &&
+            this.identifier &&
+            (this.databaseEntityLoaded === false || (this.databaseEntityLoaded && this.databaseEntity)) &&
+            // ((this.entity && this.databaseEntity) || (!this.entity && !this.databaseEntity)) &&
+            this.changeMaps.length > 0;
     }
 
     // -------------------------------------------------------------------------

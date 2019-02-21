@@ -89,7 +89,7 @@ export class FindOptionsUtils {
         if (options.select) {
             qb.select([]);
             options.select.forEach(select => {
-                if (!metadata.findColumnWithPropertyPath(select))
+                if (!metadata.findColumnWithPropertyPath(String(select)))
                     throw new Error(`${select} column was not found in the ${metadata.name} entity.`);
 
                 qb.addSelect(qb.alias + "." + select);
@@ -205,12 +205,12 @@ export class FindOptionsUtils {
 
             // add a join for the found relation
             const selection = alias + "." + relation;
-            qb.leftJoinAndSelect(selection, alias + "_" + relation);
+            qb.leftJoinAndSelect(selection, alias + "__" + relation);
 
             // join the eager relations of the found relation
             const relMetadata = metadata.relations.find(metadata => metadata.propertyName === relation);
             if (relMetadata) {
-                this.joinEagerRelations(qb, alias + "_" + relation, relMetadata.inverseEntityMetadata);
+                this.joinEagerRelations(qb, alias + "__" + relation, relMetadata.inverseEntityMetadata);
             }
 
             // remove added relations from the allRelations array, this is needed to find all not found relations at the end

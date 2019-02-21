@@ -18,6 +18,7 @@ import {Broadcaster} from "../../subscriber/Broadcaster";
 import {ColumnType, PromiseUtils} from "../../index";
 import {TableCheck} from "../../schema-builder/table/TableCheck";
 import {IsolationLevel} from "../types/IsolationLevel";
+import {TableExclusion} from "../../schema-builder/table/TableExclusion";
 
 /**
  * Runs queries on a single mysql database connection.
@@ -105,9 +106,11 @@ export class MysqlQueryRunner extends BaseQueryRunner implements QueryRunner {
             throw new TransactionAlreadyStartedError();
 
         this.isTransactionActive = true;
-        await this.query("START TRANSACTION");
         if (isolationLevel) {
-            await this.query("SET SESSION TRANSACTION ISOLATION LEVEL " + isolationLevel);
+            await this.query("SET TRANSACTION ISOLATION LEVEL " + isolationLevel);
+            await this.query("START TRANSACTION");
+        } else {
+            await this.query("START TRANSACTION");
         }
     }
 
@@ -935,6 +938,34 @@ export class MysqlQueryRunner extends BaseQueryRunner implements QueryRunner {
     }
 
     /**
+     * Creates a new exclusion constraint.
+     */
+    async createExclusionConstraint(tableOrName: Table|string, exclusionConstraint: TableExclusion): Promise<void> {
+        throw new Error(`MySql does not support exclusion constraints.`);
+    }
+
+    /**
+     * Creates a new exclusion constraints.
+     */
+    async createExclusionConstraints(tableOrName: Table|string, exclusionConstraints: TableExclusion[]): Promise<void> {
+        throw new Error(`MySql does not support exclusion constraints.`);
+    }
+
+    /**
+     * Drops exclusion constraint.
+     */
+    async dropExclusionConstraint(tableOrName: Table|string, exclusionOrName: TableExclusion|string): Promise<void> {
+        throw new Error(`MySql does not support exclusion constraints.`);
+    }
+
+    /**
+     * Drops exclusion constraints.
+     */
+    async dropExclusionConstraints(tableOrName: Table|string, exclusionConstraints: TableExclusion[]): Promise<void> {
+        throw new Error(`MySql does not support exclusion constraints.`);
+    }
+
+    /**
      * Creates a new foreign key.
      */
     async createForeignKey(tableOrName: Table|string, foreignKey: TableForeignKey): Promise<void> {
@@ -1103,7 +1134,7 @@ export class MysqlQueryRunner extends BaseQueryRunner implements QueryRunner {
             return `(\`TABLE_SCHEMA\` = '${database}' AND \`TABLE_NAME\` = '${name}')`;
         }).join(" OR ");
         const tablesSql = `SELECT * FROM \`INFORMATION_SCHEMA\`.\`TABLES\` WHERE ` + tablesCondition;
-        
+
         const columnsSql = `SELECT * FROM \`INFORMATION_SCHEMA\`.\`COLUMNS\` WHERE ` + tablesCondition;
 
         const primaryKeySql = `SELECT * FROM \`INFORMATION_SCHEMA\`.\`KEY_COLUMN_USAGE\` WHERE \`CONSTRAINT_NAME\` = 'PRIMARY' AND (${tablesCondition})`;
@@ -1201,7 +1232,7 @@ export class MysqlQueryRunner extends BaseQueryRunner implements QueryRunner {
                     }
 
                     if (dbColumn["EXTRA"].indexOf("on update") !== -1) {
-                        tableColumn.onUpdate = dbColumn["EXTRA"].substring(10);
+                        tableColumn.onUpdate = dbColumn["EXTRA"].substring(dbColumn["EXTRA"].indexOf("on update") + 10);
                     }
 
                     if (dbColumn["GENERATION_EXPRESSION"]) {
@@ -1406,7 +1437,7 @@ export class MysqlQueryRunner extends BaseQueryRunner implements QueryRunner {
             indexType += "SPATIAL ";
         if (index.isFulltext)
             indexType += "FULLTEXT ";
-        return `CREATE ${indexType}INDEX \`${index.name}\` ON ${this.escapeTableName(table)}(${columns})`;
+        return `CREATE ${indexType}INDEX \`${index.name}\` ON ${this.escapeTableName(table)} (${columns})`;
     }
 
     /**

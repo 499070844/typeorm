@@ -349,10 +349,10 @@ export class ColumnMetadata {
         if (options.args.options.precision !== undefined)
             this.precision = options.args.options.precision;
         if (options.args.options.enum) {
-            if (options.args.options.enum instanceof Object) {
-                this.enum = Object.keys(options.args.options.enum).map(key => {
-                    return (options.args.options.enum as ObjectLiteral)[key];
-                });
+            if (options.args.options.enum instanceof Object && !Array.isArray(options.args.options.enum)) {
+                this.enum = Object.keys(options.args.options.enum)
+                    .filter(key => isNaN(+key))     // remove numeric keys - typescript numeric enum types generate them
+                    .map(key => (options.args.options.enum as ObjectLiteral)[key]);
 
             } else {
                 this.enum = options.args.options.enum;
@@ -532,7 +532,7 @@ export class ColumnMetadata {
      * If column is in embedded (or recursive embedded) it extracts its value from there.
      */
      getEntityValue(entity: ObjectLiteral, transform: boolean = false): any|undefined {
-        // if (entity === undefined || entity === null) return undefined; // uncomment if needed
+        if (entity === undefined || entity === null) return undefined;
 
         // extract column value from embeddeds of entity if column is in embedded
         let value: any = undefined;

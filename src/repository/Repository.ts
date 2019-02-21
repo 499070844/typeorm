@@ -11,7 +11,7 @@ import {SelectQueryBuilder} from "../query-builder/SelectQueryBuilder";
 import {DeleteResult} from "../query-builder/result/DeleteResult";
 import {UpdateResult} from "../query-builder/result/UpdateResult";
 import {InsertResult} from "../query-builder/result/InsertResult";
-import {QueryPartialEntity} from "../query-builder/QueryPartialEntity";
+import {QueryDeepPartialEntity} from "../query-builder/QueryPartialEntity";
 import {ObjectID} from "../driver/mongodb/typings";
 import {FindConditions} from "../find-options/FindConditions";
 
@@ -123,13 +123,15 @@ export class Repository<Entity extends ObjectLiteral> {
      * Saves all given entities in the database.
      * If entities do not exist in the database then inserts, otherwise updates.
      */
-    save<T extends DeepPartial<Entity>>(entities: T[], options?: SaveOptions): Promise<T[]>;
+    save<T extends DeepPartial<Entity>>(entities: T[], options: SaveOptions & { reload: false }): Promise<T[]>;
+    save<T extends DeepPartial<Entity>>(entities: T[], options?: SaveOptions): Promise<(T & Entity)[]>;
 
     /**
      * Saves a given entity in the database.
      * If entity does not exist in the database then inserts, otherwise updates.
      */
-    save<T extends DeepPartial<Entity>>(entity: T, options?: SaveOptions): Promise<T>;
+    save<T extends DeepPartial<Entity>>(entity: T, options: SaveOptions & { reload: false }): Promise<T>;
+    save<T extends DeepPartial<Entity>>(entity: T, options?: SaveOptions): Promise<T & Entity>;
 
     /**
      * Saves one or many given entities.
@@ -161,7 +163,7 @@ export class Repository<Entity extends ObjectLiteral> {
      * Executes fast and efficient INSERT query.
      * Does not check if entity exist in the database, so query will fail if duplicate entity is being inserted.
      */
-    insert(entity: QueryPartialEntity<Entity>|(QueryPartialEntity<Entity>[]), options?: SaveOptions): Promise<InsertResult> {
+    insert(entity: QueryDeepPartialEntity<Entity>|(QueryDeepPartialEntity<Entity>[]), options?: SaveOptions): Promise<InsertResult> {
         return this.manager.insert(this.metadata.target, entity, options);
     }
 
@@ -171,7 +173,7 @@ export class Repository<Entity extends ObjectLiteral> {
      * Executes fast and efficient UPDATE query.
      * Does not check if entity exist in the database.
      */
-    update(criteria: string|string[]|number|number[]|Date|Date[]|ObjectID|ObjectID[]|FindConditions<Entity>, partialEntity: DeepPartial<Entity>, options?: SaveOptions): Promise<UpdateResult> {
+    update(criteria: string|string[]|number|number[]|Date|Date[]|ObjectID|ObjectID[]|FindConditions<Entity>, partialEntity: QueryDeepPartialEntity<Entity>, options?: SaveOptions): Promise<UpdateResult> {
         return this.manager.update(this.metadata.target, criteria as any, partialEntity, options);
     }
 
@@ -327,14 +329,14 @@ export class Repository<Entity extends ObjectLiteral> {
     /**
      * Increments some column by provided value of the entities matched given conditions.
      */
-    increment(conditions: FindConditions<Entity>, propertyPath: string, value: number): Promise<void> {
+    increment(conditions: FindConditions<Entity>, propertyPath: string, value: number | string): Promise<UpdateResult> {
         return this.manager.increment(this.metadata.target, conditions, propertyPath, value);
     }
 
     /**
      * Decrements some column by provided value of the entities matched given conditions.
      */
-    decrement(conditions: FindConditions<Entity>, propertyPath: string, value: number): Promise<void> {
+    decrement(conditions: FindConditions<Entity>, propertyPath: string, value: number | string): Promise<UpdateResult> {
         return this.manager.decrement(this.metadata.target, conditions, propertyPath, value);
     }
 

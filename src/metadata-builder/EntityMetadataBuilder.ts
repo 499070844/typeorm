@@ -18,6 +18,8 @@ import {UniqueMetadata} from "../metadata/UniqueMetadata";
 import {MysqlDriver} from "../driver/mysql/MysqlDriver";
 import {CheckMetadata} from "../metadata/CheckMetadata";
 import {SqlServerDriver} from "../driver/sqlserver/SqlServerDriver";
+import {PostgresDriver} from "../driver/postgres/PostgresDriver";
+import {ExclusionMetadata} from "../metadata/ExclusionMetadata";
 
 /**
  * Builds EntityMetadata objects and all its sub-metadatas.
@@ -206,6 +208,11 @@ export class EntityMetadataBuilder {
             entityMetadata.checks.forEach(check => check.build(this.connection.namingStrategy));
         });
 
+        // build all exclusion constraints
+        entityMetadatas.forEach(entityMetadata => {
+            entityMetadata.exclusions.forEach(exclusion => exclusion.build(this.connection.namingStrategy));
+        });
+
         // add lazy initializer for entity relations
         entityMetadatas
             .filter(metadata => metadata.target instanceof Function)
@@ -292,7 +299,18 @@ export class EntityMetadataBuilder {
         const discriminatorValue = this.metadataArgsStorage.findDiscriminatorValue(entityMetadata.target);
         entityMetadata.discriminatorValue = discriminatorValue ? discriminatorValue.value : (entityMetadata.target as any).name; // todo: pass this to naming strategy to generate a name
 
-        entityMetadata.embeddeds = this.createEmbeddedsRecursively(entityMetadata, this.metadataArgsStorage.filterEmbeddeds(entityMetadata.inheritanceTree));
+        // if single table inheritance is used, we need to mark all embedded columns as nullable
+        entityMetadata.embeddeds = this.createEmbeddedsRecursively(entityMetadata, this.metadataArgsStorage.filterEmbeddeds(entityMetadata.inheritanceTree))
+            .map((embedded: EmbeddedMetadata): EmbeddedMetadata => {
+                 if (entityMetadata.inheritancePattern === "STI") {
+                     embedded.columns = embedded.columns.map((column: ColumnMetadata): ColumnMetadata => {
+                         column.isNullable = true;
+                         return column;
+                     });
+                 }
+                 return embedded;
+            });
+
         entityMetadata.ownColumns = this.metadataArgsStorage
             .filterColumns(entityMetadata.inheritanceTree)
             .map(args => {
@@ -434,6 +452,13 @@ export class EntityMetadataBuilder {
         entityMetadata.checks = this.metadataArgsStorage.filterChecks(entityMetadata.inheritanceTree).map(args => {
             return new CheckMetadata({ entityMetadata, args });
         });
+
+        // Only PostgreSQL supports exclusion constraints.
+        if (this.connection.driver instanceof PostgresDriver) {
+            entityMetadata.exclusions = this.metadataArgsStorage.filterExclusions(entityMetadata.inheritanceTree).map(args => {
+                return new ExclusionMetadata({ entityMetadata, args });
+            });
+        }
 
         // Mysql stores unique constraints as unique indices.
         if (this.connection.driver instanceof MysqlDriver) {
@@ -582,14 +607,6 @@ export class EntityMetadataBuilder {
                     unique: false
                 }
             }),
-            new IndexMetadata({
-                entityMetadata: entityMetadata,
-                columns: [...entityMetadata.primaryColumns, entityMetadata.discriminatorColumn!],
-                args: {
-                    target: entityMetadata.target,
-                    unique: false
-                }
-            })
         );
     }
 
